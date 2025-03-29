@@ -72,6 +72,14 @@ export function useClipboardHistory() {
             
             reader.onload = () => {
               const imageData = reader.result as string;
+              
+              // Check if this image already exists in recent history
+              const exists = history.some((historyItem: ClipboardItem) => 
+                historyItem.type === 'image' && historyItem.imageData === imageData
+              );
+              
+              if (exists) return;
+
               const newItem: ClipboardItem = {
                 id: crypto.randomUUID(),
                 content: 'Image from clipboard',
@@ -92,7 +100,9 @@ export function useClipboardHistory() {
         if (!text) return;
 
         // Check if this content already exists in recent history
-        const exists = history.some((item: ClipboardItem) => item.content === text);
+        const exists = history.some((historyItem: ClipboardItem) => 
+          historyItem.type !== 'image' && historyItem.content === text
+        );
         if (exists) return;
 
         const newItem: ClipboardItem = {
