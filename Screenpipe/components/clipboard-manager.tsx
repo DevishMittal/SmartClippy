@@ -205,7 +205,7 @@ export function ClipboardManager() {
                   )}
                 </Button>
                 <Button
-                  onClick={() => handleTranslate(selectedItem, 'Spanish')}
+                  onClick={() => handleTranslate(selectedItem, 'English')}
                   disabled={isProcessing}
                   variant="secondary"
                 >
