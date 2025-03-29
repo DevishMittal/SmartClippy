@@ -50,8 +50,10 @@ export function ClipboardManager() {
     try {
       const updatedItem = await formatCode(item);
       updateItem(updatedItem);
+      setSelectedItem(updatedItem);
       toast.success('Code formatted successfully');
     } catch (error) {
+      console.error('Format error:', error);
       toast.error('Failed to format code', {
         description: error instanceof Error ? error.message : 'Unknown error occurred'
       });
@@ -62,8 +64,10 @@ export function ClipboardManager() {
     try {
       const updatedItem = await summarizeContent(item);
       updateItem(updatedItem);
+      setSelectedItem(updatedItem);
       toast.success('Content summarized successfully');
     } catch (error) {
+      console.error('Summarize error:', error);
       toast.error('Failed to summarize content', { 
         description: error instanceof Error ? error.message : 'Unknown error occurred'
       });
@@ -74,8 +78,10 @@ export function ClipboardManager() {
     try {
       const updatedItem = await translateContent(item, language);
       updateItem(updatedItem);
+      setSelectedItem(updatedItem);
       toast.success('Content translated successfully');
     } catch (error) {
+      console.error('Translate error:', error);
       toast.error('Failed to translate content', {
         description: error instanceof Error ? error.message : 'Unknown error occurred'
       });
@@ -156,40 +162,70 @@ export function ClipboardManager() {
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <button
+                <Button
                   onClick={() => handleCopyToClipboard(selectedItem.content)}
-                  className="px-3 py-1 rounded-md bg-blue-500 hover:bg-blue-600 text-white"
+                  variant="default"
+                  disabled={isProcessing}
                 >
                   Copy
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={() => removeItem(selectedItem.id)}
-                  className="px-3 py-1 rounded-md bg-red-500 hover:bg-red-600 text-white"
+                  variant="destructive"
+                  disabled={isProcessing}
                 >
                   Delete
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={() => handleFormat(selectedItem)}
                   disabled={selectedItem.type !== 'code' || isProcessing}
-                  className="px-3 py-1 rounded-md bg-purple-500 hover:bg-purple-600 text-white disabled:opacity-50"
+                  variant="secondary"
                 >
-                  {isProcessing ? 'Formatting...' : 'Format Code'}
-                </button>
-                <button
+                  {isProcessing ? (
+                    <>
+                      <span className="animate-spin mr-2">⌛</span>
+                      Formatting...
+                    </>
+                  ) : (
+                    'Format Code'
+                  )}
+                </Button>
+                <Button
                   onClick={() => handleSummarize(selectedItem)}
                   disabled={isProcessing}
-                  className="px-3 py-1 rounded-md bg-green-500 hover:bg-green-600 text-white disabled:opacity-50"
+                  variant="secondary"
                 >
-                  {isProcessing ? 'Summarizing...' : 'Summarize'}
-                </button>
-                <button
+                  {isProcessing ? (
+                    <>
+                      <span className="animate-spin mr-2">⌛</span>
+                      Summarizing...
+                    </>
+                  ) : (
+                    'Summarize'
+                  )}
+                </Button>
+                <Button
                   onClick={() => handleTranslate(selectedItem, 'Spanish')}
                   disabled={isProcessing}
-                  className="px-3 py-1 rounded-md bg-yellow-500 hover:bg-yellow-600 text-white disabled:opacity-50"
+                  variant="secondary"
                 >
-                  {isProcessing ? 'Translating...' : 'Translate'}
-                </button>
+                  {isProcessing ? (
+                    <>
+                      <span className="animate-spin mr-2">⌛</span>
+                      Translating...
+                    </>
+                  ) : (
+                    'Translate'
+                  )}
+                </Button>
               </div>
+
+              {error && (
+                <div className="mt-4 p-4 rounded-md bg-red-50 text-red-700">
+                  <h3 className="text-md font-semibold">Error</h3>
+                  <p className="mt-1 text-sm">{error}</p>
+                </div>
+              )}
 
               {selectedItem.summary && (
                 <div className="mt-4 p-4 rounded-md bg-green-50">

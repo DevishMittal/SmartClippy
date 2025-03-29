@@ -2,6 +2,17 @@ import { useState } from 'react';
 import type { ClipboardItem } from './use-clipboard-history';
 import { useSettings } from '@/lib/hooks/use-settings';
 import { useAiProvider } from './use-ai-provider';
+import type { Settings } from '@screenpipe/js';
+
+interface AIPreset {
+  id: string;
+  url: string;
+  model: string;
+  provider: 'openai' | 'native-ollama' | 'custom' | 'screenpipe-cloud';
+  apiKey?: string;
+  maxContextChars: number;
+  prompt?: string;
+}
 
 interface AIProcessingOptions {
   summarize?: boolean;
@@ -16,41 +27,56 @@ export function useClipboardAI() {
   const aiProvider = useAiProvider(settings);
 
   const callAI = async (prompt: string): Promise<string> => {
+    console.log('Starting AI call with:', {
+      provider: settings?.aiProviderType,
+      isAvailable: aiProvider.isAvailable,
+      error: aiProvider.error
+    });
+  
     if (!settings?.aiProviderType || !aiProvider.isAvailable) {
+      console.error('AI Provider Error:', aiProvider.error || 'AI provider not configured');
       throw new Error(aiProvider.error || 'AI provider not configured');
     }
-
+  
     try {
-      const baseUrl = settings.aiUrl || 'https://api.openai.com/v1';
-      const response = await fetch(`${baseUrl}/chat/completions`, {
+      const preset = settings.aiPresets?.find(preset => preset.id === settings.aiPresetId);
+      console.log('Using preset:', preset);
+  
+      if (!preset) {
+        console.error('No AI preset selected');
+        throw new Error('No AI preset selected');
+      }
+  
+      const baseUrl = preset.url;
+      console.log('Making request to:', `${baseUrl}/generate`);
+  
+      const response = await fetch(`${baseUrl}/generate`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${settings.aiProviderType === 'openai' ? settings.openaiApiKey : settings.user?.token}`,
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: settings.aiModel || 'gpt-3.5-turbo',
-          messages: [
-            {
-              role: 'system',
-              content: settings.customPrompt || 'You are a helpful AI assistant that processes text based on specific instructions.'
-            },
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-          temperature: 0.3,
-          max_tokens: Math.min(settings.aiMaxContextChars || 512000, 1000),
+          model: preset.model,
+          prompt: prompt,
+          stream: false,
+          options: {
+            temperature: 0.3,
+            num_predict: Math.min(preset.maxContextChars || 512000, 1000),
+          }
         }),
       });
-
+  
+      console.log('Response status:', response.status);
+      
       if (!response.ok) {
-        throw new Error(`AI API error: ${response.statusText}`);
+        const error = await response.json();
+        console.error('API Error:', error);
+        throw new Error(`AI API error: ${error.message || response.statusText}`);
       }
-
+  
       const data = await response.json();
-      return data.choices[0].message.content;
+      console.log('API Response:', data);
+      return data.response;
     } catch (error) {
       console.error('AI API call failed:', error);
       throw error;

@@ -190,7 +190,7 @@ export function AIProviderConfig({
 
     // Check for duplicate IDs, excluding the current preset being edited
     const isDuplicate = settings?.aiPresets?.some(
-      (preset) =>
+      (preset: AIPreset) =>
         preset.id.toLowerCase() === id.toLowerCase() &&
         preset.id !== defaultPreset?.id
     );
@@ -212,22 +212,37 @@ export function AIProviderConfig({
   const fetchOpenAIModels = async (baseUrl: string, apiKey: string) => {
     setIsLoadingModels(true);
     try {
-      const response = await fetch(`${baseUrl}/models`, {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-      });
+      // Use proxy endpoint for Nebius API
+      const isNebius = baseUrl.includes('api.studio.nebius.com');
+      const fetchUrl = isNebius ? '/api/nebius/models' : `${baseUrl}/models`;
 
-      if (!response.ok) {
-        throw new Error("failed to fetch models");
+      const response = await fetch(fetchUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+      }).catch(() => null);
+
+      if (!response?.ok) {
+        setOpenAIModels([
+          { id: 'meta-llama/Meta-Llama-3.1-70B-Instruct' },
+          { id: 'meta-llama/Meta-Llama-3.1-34B-Instruct' },
+          { id: 'meta-llama/Meta-Llama-3.1-8B-Instruct' }
+        ]);
+        return;
       }
 
       const data = await response.json();
       setOpenAIModels(data.data || []);
     } catch (error) {
-      console.error("error fetching models:", error);
-      setOpenAIModels([]);
+      console.error('error fetching models:', error);
+      // Fallback to common Nebius models
+      setOpenAIModels([
+        { id: 'meta-llama/Meta-Llama-3.1-70B-Instruct' },
+        { id: 'meta-llama/Meta-Llama-3.1-34B-Instruct' },
+        { id: 'meta-llama/Meta-Llama-3.1-8B-Instruct' }
+      ]);
     } finally {
       setIsLoadingModels(false);
     }
@@ -236,19 +251,34 @@ export function AIProviderConfig({
   const fetchOllamaModels = async (baseUrl: string) => {
     setIsLoadingModels(true);
     try {
-      const response = await fetch(`${baseUrl}/models`);
+      const response = await fetch(`${baseUrl}/models`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+        mode: 'cors',
+      }).catch(() => null);
 
-      if (!response.ok) {
-        throw new Error("failed to fetch ollama models");
+      if (!response?.ok) {
+        setOpenAIModels([
+          { id: 'llama2' },
+          { id: 'codellama' },
+          { id: 'mistral' }
+        ]);
+        return;
       }
 
-      const data = (await response.json()) as {
-        data: OpenAIModel[];
-      };
-      setOpenAIModels(data.data || []);
+      const data = await response.json();
+      setOpenAIModels(data.models || []);
     } catch (error) {
-      console.error("error fetching ollama models:", error);
-      setOpenAIModels([]);
+      console.error('error fetching ollama models:', error);
+      // Fallback to common models
+      setOpenAIModels([
+        { id: 'llama2' },
+        { id: 'codellama' },
+        { id: 'mistral' }
+      ]);
     } finally {
       setIsLoadingModels(false);
     }
@@ -403,7 +433,7 @@ export function AIProviderConfig({
               setFormData({
                 ...formData,
                 provider: "custom",
-                baseUrl: "http://localhost:11434/v1",
+                baseUrl: "/api/nebius",
               });
             }}
           >
@@ -807,7 +837,7 @@ export const AIPresetsSelector = ({
 
   const selectedPreset = useMemo(() => {
     const preset = settings?.aiPresets?.find(
-      (preset) => preset.id == pipeSettings?.[aiKey]
+      (preset: AIPreset) => preset.id == pipeSettings?.[aiKey]
     );
 
     return preset?.id;
@@ -864,7 +894,7 @@ export const AIPresetsSelector = ({
       ) {
         // Check for duplicate ID
         const existingPreset = settings.aiPresets.find(
-          (pre) => pre.id === preset.id
+          (pre: AIPreset) => pre.id === preset.id
         );
 
         if (existingPreset) {
@@ -890,7 +920,7 @@ export const AIPresetsSelector = ({
         });
       } else {
         // Normal edit operation
-        const updatedPresets = settings.aiPresets.map((p) =>
+        const updatedPresets = settings.aiPresets.map((p: AIPreset) =>
           p.id === selectedPresetToEdit.id
             ? ({ ...preset, defaultPreset: p.defaultPreset } as AIPreset)
             : p
@@ -923,7 +953,7 @@ export const AIPresetsSelector = ({
     } else {
       // Check for duplicate ID only when creating new preset
       const existingPreset = settings.aiPresets.find(
-        (pre) => pre.id === preset.id
+        (pre: AIPreset) => pre.id === preset.id
       );
 
       if (existingPreset) {
@@ -991,7 +1021,7 @@ export const AIPresetsSelector = ({
     if (!settings?.aiPresets) return;
     if (preset.defaultPreset) return;
 
-    const updatedPresets = settings.aiPresets.map((p) => ({
+    const updatedPresets = settings.aiPresets.map((p: AIPreset) => ({
       ...p,
       defaultPreset: p.id === preset.id,
     }));
@@ -1022,7 +1052,7 @@ export const AIPresetsSelector = ({
       return;
     }
 
-    const updatedPresets = settings.aiPresets.filter((p) => p.id !== preset.id);
+    const updatedPresets = settings.aiPresets.filter((p: AIPreset) => p.id !== preset.id);
     updateSettings({
       aiPresets: updatedPresets,
     });
