@@ -9,6 +9,7 @@ export interface ClipboardItem {
   summary?: string;
   translated?: string;
   tags?: string[];
+  imageData?: string; // Base64 encoded image data
 }
 
 export function useClipboardHistory() {
@@ -62,6 +63,31 @@ export function useClipboardHistory() {
 
     const handleClipboardChange = async () => {
       try {
+        // Try to read image data first
+        const items = await navigator.clipboard.read();
+        for (const item of items) {
+          if (item.types.includes('image/png') || item.types.includes('image/jpeg')) {
+            const imageBlob = await item.getType(item.types.find(type => type.startsWith('image/')) || 'image/png');
+            const reader = new FileReader();
+            
+            reader.onload = () => {
+              const imageData = reader.result as string;
+              const newItem: ClipboardItem = {
+                id: crypto.randomUUID(),
+                content: 'Image from clipboard',
+                type: 'image',
+                timestamp: Date.now(),
+                imageData
+              };
+              addItem(newItem);
+            };
+            
+            reader.readAsDataURL(imageBlob);
+            return; // Exit if we found an image
+          }
+        }
+
+        // If no image, try to read text
         const text = await navigator.clipboard.readText();
         if (!text) return;
 
@@ -88,6 +114,7 @@ export function useClipboardHistory() {
   }, [isMonitoring, hasFocus, history]);
 
   const detectContentType = (content: string): ClipboardItem['type'] => {
+    if (content.startsWith('data:image/')) return 'image';
     if (content.startsWith('http://') || content.startsWith('https://')) return 'link';
     if (content.includes('{') || content.includes('function') || content.includes('class')) return 'code';
     return 'text';

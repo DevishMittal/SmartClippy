@@ -145,7 +145,17 @@ export function ClipboardManager() {
                     {new Date(item.timestamp).toLocaleString()}
                   </span>
                 </div>
-                <p className="mt-1 text-sm truncate">{item.content}</p>
+                {item.type === 'image' && item.imageData ? (
+                  <div className="mt-1 h-16 overflow-hidden">
+                    <img 
+                      src={item.imageData} 
+                      alt="Clipboard content" 
+                      className="h-full w-full object-contain"
+                    />
+                  </div>
+                ) : (
+                  <p className="mt-1 text-sm truncate">{item.content}</p>
+                )}
               </div>
             ))}
           </div>
@@ -156,14 +166,27 @@ export function ClipboardManager() {
           {selectedItem ? (
             <div className="space-y-4">
               <div className="p-4 rounded-md bg-gray-100">
-                <pre className="whitespace-pre-wrap break-words">
-                  {selectedItem.content}
-                </pre>
+                {selectedItem.type === 'image' && selectedItem.imageData ? (
+                  <div className="flex justify-center">
+                    <img 
+                      src={selectedItem.imageData} 
+                      alt="Clipboard content" 
+                      className="max-h-[400px] object-contain"
+                    />
+                  </div>
+                ) : (
+                  <pre className="whitespace-pre-wrap break-words">
+                    {selectedItem.content}
+                  </pre>
+                )}
               </div>
 
               <div className="flex flex-wrap gap-2">
                 <Button
-                  onClick={() => handleCopyToClipboard(selectedItem.content)}
+                  onClick={() => selectedItem.type === 'image' && selectedItem.imageData 
+                    ? handleCopyToClipboard(selectedItem.imageData)
+                    : handleCopyToClipboard(selectedItem.content)
+                  }
                   variant="default"
                   disabled={isProcessing}
                 >
