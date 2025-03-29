@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useClipboardHistory, type ClipboardItem } from '../hooks/use-clipboard-history';
-import { useClipboardAI } from '../hooks/use-clipboard-ai';
+import { useOllama } from '../hooks/use-ollama';
 import { Button } from './ui/button';
 import { AIPresetsSelector } from './ai-presets-selector';
 import { toast } from 'sonner';
@@ -13,18 +13,21 @@ export function ClipboardManager() {
     stopMonitoring,
     clearHistory,
     removeItem,
-    addItem,
-    updateItem
+    updateItem,
+    hasFocus
   } = useClipboardHistory();
 
   const {
     isProcessing,
+    error,
     formatCode,
     summarizeContent,
     translateContent,
-    isAvailable,
-    error
-  } = useClipboardAI();
+  } = useOllama({
+    model: 'qwen2.5', // using Qwen 2.5 as default model
+    temperature: 0.3,
+    maxTokens: 1000
+  });
 
   const [selectedItem, setSelectedItem] = useState<ClipboardItem | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -36,17 +39,14 @@ export function ClipboardManager() {
   const handleCopyToClipboard = async (content: string) => {
     try {
       await navigator.clipboard.writeText(content);
+      toast.success('Copied to clipboard');
     } catch (error) {
       console.error('Failed to copy:', error);
+      toast.error('Failed to copy to clipboard');
     }
   };
 
   const handleFormat = async (item: ClipboardItem) => {
-    if (!isAvailable) {
-      toast.error('AI Not Available', { description: error });
-      return;
-    }
-
     try {
       const updatedItem = await formatCode(item);
       updateItem(updatedItem);
@@ -59,11 +59,6 @@ export function ClipboardManager() {
   };
 
   const handleSummarize = async (item: ClipboardItem) => {
-    if (!isAvailable) {
-      toast.error('AI Not Available', { description: error });
-      return;
-    }
-
     try {
       const updatedItem = await summarizeContent(item);
       updateItem(updatedItem);
@@ -76,11 +71,6 @@ export function ClipboardManager() {
   };
 
   const handleTranslate = async (item: ClipboardItem, language: string) => {
-    if (!isAvailable) {
-      toast.error('AI Not Available', { description: error });
-      return;
-    }
-
     try {
       const updatedItem = await translateContent(item, language);
       updateItem(updatedItem);
@@ -103,15 +93,21 @@ export function ClipboardManager() {
           >
             {isMonitoring ? "Stop Monitoring" : "Start Monitoring"}
           </Button>
-          <button
+          <Button
             onClick={clearHistory}
-            className="px-4 py-2 rounded-md bg-gray-500 hover:bg-gray-600 text-white"
+            variant="outline"
           >
             Clear History
-          </button>
+          </Button>
         </div>
         <AIPresetsSelector pipeName="clipboard-manager" />
       </div>
+
+      {isMonitoring && !hasFocus && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-2 rounded-md">
+          Window is not focused. Click anywhere in the window to resume clipboard monitoring.
+        </div>
+      )}
 
       <input
         type="text"

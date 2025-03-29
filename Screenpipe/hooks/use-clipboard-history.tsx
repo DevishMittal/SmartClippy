@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useLocalStorage } from './use-local-storage';
+import { useLocalStorage } from '../lib/hooks/use-local-storage';
 
 export interface ClipboardItem {
   id: string;
@@ -14,9 +14,51 @@ export interface ClipboardItem {
 export function useClipboardHistory() {
   const [history, setHistory] = useLocalStorage<ClipboardItem[]>('clipboard-history', []);
   const [isMonitoring, setIsMonitoring] = useState(false);
+  const [hasFocus, setHasFocus] = useState(typeof document !== 'undefined' ? document.hasFocus() : false);
+
+  const addItem = (item: ClipboardItem) => {
+    setHistory((prev: ClipboardItem[]) => [item, ...prev].slice(0, 1000));
+  };
+
+  const updateItem = (updatedItem: ClipboardItem) => {
+    setHistory((prev: ClipboardItem[]) => prev.map((item: ClipboardItem) => 
+      item.id === updatedItem.id ? updatedItem : item
+    ));
+  };
+
+  const removeItem = (id: string) => {
+    setHistory((prev: ClipboardItem[]) => prev.filter((item: ClipboardItem) => item.id !== id));
+  };
+
+  const clearHistory = () => {
+    setHistory([]);
+  };
+
+  const startMonitoring = () => {
+    setIsMonitoring(true);
+  };
+
+  const stopMonitoring = () => {
+    setIsMonitoring(false);
+  };
 
   useEffect(() => {
-    if (!isMonitoring) return;
+    if (typeof window === 'undefined') return;
+
+    const handleFocus = () => setHasFocus(true);
+    const handleBlur = () => setHasFocus(false);
+
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('blur', handleBlur);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isMonitoring || !hasFocus) return;
 
     const handleClipboardChange = async () => {
       try {
@@ -24,7 +66,7 @@ export function useClipboardHistory() {
         if (!text) return;
 
         // Check if this content already exists in recent history
-        const exists = history.some(item => item.content === text);
+        const exists = history.some((item: ClipboardItem) => item.content === text);
         if (exists) return;
 
         const newItem: ClipboardItem = {
@@ -34,29 +76,21 @@ export function useClipboardHistory() {
           timestamp: Date.now(),
         };
 
-        setHistory(prev => [newItem, ...prev].slice(0, 1000)); // Keep last 1000 items
+        addItem(newItem);
       } catch (error) {
         console.error('Failed to read clipboard:', error);
       }
     };
 
-    // Poll for clipboard changes
+    // Poll for clipboard changes only when window has focus
     const interval = setInterval(handleClipboardChange, 1000);
     return () => clearInterval(interval);
-  }, [isMonitoring, history]);
+  }, [isMonitoring, hasFocus, history]);
 
   const detectContentType = (content: string): ClipboardItem['type'] => {
     if (content.startsWith('http://') || content.startsWith('https://')) return 'link';
     if (content.includes('{') || content.includes('function') || content.includes('class')) return 'code';
     return 'text';
-  };
-
-  const startMonitoring = () => setIsMonitoring(true);
-  const stopMonitoring = () => setIsMonitoring(false);
-  const clearHistory = () => setHistory([]);
-  
-  const removeItem = (id: string) => {
-    setHistory(prev => prev.filter(item => item.id !== id));
   };
 
   return {
@@ -66,5 +100,8 @@ export function useClipboardHistory() {
     stopMonitoring,
     clearHistory,
     removeItem,
+    addItem,
+    updateItem,
+    hasFocus
   };
 } 
