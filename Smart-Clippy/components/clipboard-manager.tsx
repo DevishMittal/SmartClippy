@@ -230,9 +230,10 @@ export function ClipboardManager() {
           </div>
         </motion.div>
 
-        <AnimatePresence>
+        <AnimatePresence mode="wait">
           {isMonitoring && !hasFocus && (
             <motion.div
+              key="focus-warning"
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
@@ -270,7 +271,7 @@ export function ClipboardManager() {
               History
             </div>
             <div className="space-y-3 max-h-[calc(100vh-300px)] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700">
-              <AnimatePresence>
+              <AnimatePresence mode="wait">
                 {filteredHistory.map((item: ClipboardItem) => (
                   <motion.div
                     key={item.id}
@@ -408,9 +409,10 @@ export function ClipboardManager() {
                   </Button>
                 </div>
 
-                <AnimatePresence>
+                <AnimatePresence mode="wait">
                   {error && (
                     <motion.div
+                      key="error"
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
@@ -423,6 +425,7 @@ export function ClipboardManager() {
 
                   {selectedItem.summary && (
                     <motion.div
+                      key="summary"
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
@@ -435,6 +438,7 @@ export function ClipboardManager() {
 
                   {selectedItem.translated && (
                     <motion.div
+                      key="translation"
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
