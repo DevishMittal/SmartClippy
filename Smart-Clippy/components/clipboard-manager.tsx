@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 import { useClipboardHistory, type ClipboardItem } from '../hooks/use-clipboard-history';
 import { useOllama } from '../hooks/use-ollama';
@@ -8,6 +10,31 @@ import { toast } from 'sonner';
 import { useLocalStorage } from '../lib/hooks/use-local-storage';
 import { Moon, Sun, Search, Clipboard, Clock, Zap, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTheme } from 'next-themes';
+
+function ThemeToggle() {
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return <div className="w-9 h-9" />; // Placeholder with same dimensions
+  }
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+      className="rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors duration-200"
+    >
+      {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+    </Button>
+  );
+}
 
 export function ClipboardManager() {
   const [theme, setTheme] = useLocalStorage<'light' | 'dark'>('theme', 'light');
@@ -144,10 +171,6 @@ export function ClipboardManager() {
     document.documentElement.classList.toggle('dark', theme === 'dark');
   }, [theme]);
 
-  const toggleTheme = () => {
-    setTheme(theme === 'light' ? 'dark' : 'light');
-  };
-
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-100 via-slate-50 to-teal-100 dark:from-slate-900 dark:via-slate-800 dark:to-blue-900 text-slate-900 dark:text-slate-100 transition-colors duration-500">
       <div className="flex flex-col h-full max-w-5xl mx-auto p-6 space-y-6">
@@ -169,14 +192,7 @@ export function ClipboardManager() {
                 AI Powered
               </div>
             </motion.div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-              className="rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors duration-200"
-            >
-              {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
-            </Button>
+            <ThemeToggle />
           </div>
           <div className="flex items-center gap-4 flex-wrap">
             <ModelSelector
