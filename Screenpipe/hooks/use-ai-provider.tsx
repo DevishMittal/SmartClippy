@@ -7,7 +7,7 @@ interface AIProviderStatus {
 }
 
 export function useAiProvider(
-  settings: Settings | undefined,
+  settings: Partial<Settings> | undefined,
 ): AIProviderStatus {
   const [status, setStatus] = useState<AIProviderStatus>({
     isAvailable: true,

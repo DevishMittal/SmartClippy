@@ -2,7 +2,15 @@ import { useState } from 'react';
 import type { ClipboardItem } from './use-clipboard-history';
 import { useSettings } from '@/lib/hooks/use-settings';
 import { useAiProvider } from './use-ai-provider';
-import type { Settings } from '@screenpipe/js';
+import type { Settings as BaseSettings } from '@screenpipe/js';
+
+type Settings = BaseSettings & {
+  aiPresetId?: string;
+};
+
+type UseSettingsReturn = {
+  settings: Partial<Settings> | null;
+};
 
 interface AIPreset {
   id: string;
@@ -23,8 +31,8 @@ interface AIProcessingOptions {
 
 export function useClipboardAI() {
   const [isProcessing, setIsProcessing] = useState(false);
-  const { settings } = useSettings();
-  const aiProvider = useAiProvider(settings);
+  const { settings } = useSettings() as UseSettingsReturn;
+  const aiProvider = useAiProvider(settings ?? undefined);
 
   const callAI = async (prompt: string): Promise<string> => {
     console.log('Starting AI call with:', {
