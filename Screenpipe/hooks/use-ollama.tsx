@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { ClipboardItem } from './use-clipboard-history';
 
 interface OllamaOptions {
@@ -7,15 +7,55 @@ interface OllamaOptions {
   maxTokens?: number;
 }
 
+interface OllamaModel {
+  name: string;
+  modified_at: string;
+  size: number;
+}
+
 export function useOllama(defaultOptions: OllamaOptions = {}) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [availableModels, setAvailableModels] = useState<OllamaModel[]>([]);
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
+  const [currentModel, setCurrentModel] = useState(defaultOptions.model || 'qwen2.5');
 
-  const callOllama = async (prompt: string, options: OllamaOptions = {}) => {
+  // Update currentModel when defaultOptions.model changes
+  useEffect(() => {
+    if (defaultOptions.model) {
+      setCurrentModel(defaultOptions.model);
+    }
+  }, [defaultOptions.model]);
+
+  const fetchAvailableModels = useCallback(async () => {
+    setIsLoadingModels(true);
+    try {
+      const response = await fetch('http://localhost:11434/api/tags');
+      if (!response.ok) {
+        throw new Error('Failed to fetch models');
+      }
+      const data = await response.json();
+      setAvailableModels(data.models || []);
+      return data.models;
+    } catch (error) {
+      console.error('Failed to fetch Ollama models:', error);
+      setError(error instanceof Error ? error.message : 'Failed to fetch models');
+      return [];
+    } finally {
+      setIsLoadingModels(false);
+    }
+  }, []);
+
+  const callOllama = useCallback(async (prompt: string, options: OllamaOptions = {}) => {
     const baseUrl = 'http://localhost:11434/api';
     
     try {
-      console.log('Calling Ollama with prompt:', prompt.slice(0, 100) + '...');
+      console.log('Calling Ollama with:', {
+        model: currentModel,
+        prompt: prompt.slice(0, 100) + '...',
+        temperature: options.temperature || defaultOptions.temperature,
+        maxTokens: options.maxTokens || defaultOptions.maxTokens
+      });
       
       const response = await fetch(`${baseUrl}/generate`, {
         method: 'POST',
@@ -23,7 +63,7 @@ export function useOllama(defaultOptions: OllamaOptions = {}) {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: options.model || defaultOptions.model || 'qwen2.5',
+          model: currentModel,
           prompt: prompt,
           stream: false,
           options: {
@@ -47,7 +87,7 @@ export function useOllama(defaultOptions: OllamaOptions = {}) {
       setError(error instanceof Error ? error.message : 'Unknown error');
       throw error;
     }
-  };
+  }, [currentModel, defaultOptions.temperature, defaultOptions.maxTokens]);
 
   const summarizeContent = useCallback(async (item: ClipboardItem) => {
     setIsProcessing(true);
@@ -66,7 +106,7 @@ export function useOllama(defaultOptions: OllamaOptions = {}) {
     } finally {
       setIsProcessing(false);
     }
-  }, []);
+  }, [callOllama]);
 
   const translateContent = useCallback(async (item: ClipboardItem, targetLanguage: string) => {
     setIsProcessing(true);
@@ -85,7 +125,7 @@ export function useOllama(defaultOptions: OllamaOptions = {}) {
     } finally {
       setIsProcessing(false);
     }
-  }, []);
+  }, [callOllama]);
 
   const formatCode = useCallback(async (item: ClipboardItem) => {
     if (item.type !== 'code') return item;
@@ -106,7 +146,7 @@ export function useOllama(defaultOptions: OllamaOptions = {}) {
     } finally {
       setIsProcessing(false);
     }
-  }, []);
+  }, [callOllama]);
 
   return {
     isProcessing,
@@ -114,6 +154,10 @@ export function useOllama(defaultOptions: OllamaOptions = {}) {
     summarizeContent,
     translateContent,
     formatCode,
-    callOllama
+    callOllama,
+    availableModels,
+    isLoadingModels,
+    fetchAvailableModels,
+    currentModel
   };
 } 

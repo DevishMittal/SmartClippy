@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useClipboardHistory, type ClipboardItem } from '../hooks/use-clipboard-history';
 import { useOllama } from '../hooks/use-ollama';
 import { Button } from './ui/button';
-import { AIPresetsSelector } from './ai-presets-selector';
+import { ModelSelector } from './model-selector';
 import { toast } from 'sonner';
+import { useLocalStorage } from '../lib/hooks/use-local-storage';
 
 export function ClipboardManager() {
+  const [selectedModel, setSelectedModel] = useLocalStorage('selected-ollama-model', 'qwen2.5');
+  
   const {
     history,
     isMonitoring,
@@ -23,14 +26,22 @@ export function ClipboardManager() {
     formatCode,
     summarizeContent,
     translateContent,
+    availableModels,
+    isLoadingModels,
+    fetchAvailableModels
   } = useOllama({
-    model: 'qwen2.5', // using Qwen 2.5 as default model
+    model: selectedModel,
     temperature: 0.3,
     maxTokens: 1000
   });
 
   const [selectedItem, setSelectedItem] = useState<ClipboardItem | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+
+  const handleModelChange = (model: string) => {
+    setSelectedModel(model);
+    toast.success(`Model changed to ${model}`);
+  };
 
   const filteredHistory = history.filter((item: ClipboardItem) =>
     item.content.toLowerCase().includes(searchTerm.toLowerCase())
@@ -90,9 +101,16 @@ export function ClipboardManager() {
 
   return (
     <div className="flex flex-col h-full max-w-4xl mx-auto p-4 space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <h1 className="text-2xl font-bold">Smart Clipboard Manager</h1>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center gap-4 flex-wrap">
+          <ModelSelector
+            selectedModel={selectedModel}
+            onModelChange={handleModelChange}
+            availableModels={availableModels}
+            isLoadingModels={isLoadingModels}
+            onRefresh={fetchAvailableModels}
+          />
           <Button
             onClick={isMonitoring ? stopMonitoring : startMonitoring}
             variant={isMonitoring ? "destructive" : "default"}
@@ -106,7 +124,6 @@ export function ClipboardManager() {
             Clear History
           </Button>
         </div>
-        <AIPresetsSelector pipeName="clipboard-manager" />
       </div>
 
       {isMonitoring && !hasFocus && (
