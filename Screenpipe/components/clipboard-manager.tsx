@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useClipboardHistory, type ClipboardItem } from '../hooks/use-clipboard-history';
 import { useOllama } from '../hooks/use-ollama';
+import { useNebius } from '../hooks/use-nebius';
 import { Button } from './ui/button';
 import { ModelSelector } from './model-selector';
 import { toast } from 'sonner';
 import { useLocalStorage } from '../lib/hooks/use-local-storage';
 
 export function ClipboardManager() {
-  const [selectedModel, setSelectedModel] = useLocalStorage('selected-ollama-model', 'qwen2.5');
+  const [provider, setProvider] = useLocalStorage<'ollama' | 'nebius'>('selected-provider', 'ollama');
+  const [selectedModel, setSelectedModel] = useLocalStorage('selected-model', 'qwen2.5');
+  const [apiKey, setApiKey] = useLocalStorage('nebius-api-key', '');
   
   const {
     history,
@@ -21,26 +24,103 @@ export function ClipboardManager() {
   } = useClipboardHistory();
 
   const {
-    isProcessing,
-    error,
-    formatCode,
-    summarizeContent,
-    translateContent,
-    availableModels,
-    isLoadingModels,
-    fetchAvailableModels
+    isProcessing: isOllamaProcessing,
+    error: ollamaError,
+    formatCode: formatCodeOllama,
+    summarizeContent: summarizeContentOllama,
+    translateContent: translateContentOllama,
+    availableModels: ollamaModels,
+    isLoadingModels: isLoadingOllamaModels,
+    fetchAvailableModels: fetchOllamaModels
   } = useOllama({
-    model: selectedModel,
+    model: provider === 'ollama' ? selectedModel : undefined,
     temperature: 0.3,
     maxTokens: 1000
+  });
+
+  const {
+    isProcessing: isNebiusProcessing,
+    error: nebiusError,
+    formatCode: formatCodeNebius,
+    summarizeContent: summarizeContentNebius,
+    translateContent: translateContentNebius,
+    availableModels: nebiusModels,
+    isLoadingModels: isLoadingNebiusModels,
+    fetchAvailableModels: fetchNebiusModels
+  } = useNebius({
+    model: provider === 'nebius' ? selectedModel : undefined,
+    temperature: 0.3,
+    maxTokens: 1000,
+    apiKey
   });
 
   const [selectedItem, setSelectedItem] = useState<ClipboardItem | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const handleModelChange = (model: string) => {
+  const handleProviderChange = (newProvider: 'ollama' | 'nebius') => {
+    setProvider(newProvider);
+    // Reset selected model when changing providers
+    setSelectedModel(newProvider === 'ollama' ? 'qwen2.5' : 'meta-llama/Meta-Llama-3.1-70B-Instruct');
+  };
+
+  const handleModelChange = (model: string, provider: 'ollama' | 'nebius') => {
     setSelectedModel(model);
     toast.success(`Model changed to ${model}`);
+  };
+
+  const handleApiKeyChange = (key: string) => {
+    setApiKey(key);
+    if (key) {
+      fetchNebiusModels();
+    }
+  };
+
+  const isProcessing = provider === 'ollama' ? isOllamaProcessing : isNebiusProcessing;
+  const error = provider === 'ollama' ? ollamaError : nebiusError;
+
+  const handleFormat = async (item: ClipboardItem) => {
+    try {
+      const formatFn = provider === 'ollama' ? formatCodeOllama : formatCodeNebius;
+      const updatedItem = await formatFn(item);
+      updateItem(updatedItem);
+      setSelectedItem(updatedItem);
+      toast.success('Code formatted successfully');
+    } catch (error) {
+      console.error('Format error:', error);
+      toast.error('Failed to format code', {
+        description: error instanceof Error ? error.message : 'Unknown error occurred'
+      });
+    }
+  };
+
+  const handleSummarize = async (item: ClipboardItem) => {
+    try {
+      const summarizeFn = provider === 'ollama' ? summarizeContentOllama : summarizeContentNebius;
+      const updatedItem = await summarizeFn(item);
+      updateItem(updatedItem);
+      setSelectedItem(updatedItem);
+      toast.success('Content summarized successfully');
+    } catch (error) {
+      console.error('Summarize error:', error);
+      toast.error('Failed to summarize content', { 
+        description: error instanceof Error ? error.message : 'Unknown error occurred'
+      });
+    }
+  };
+
+  const handleTranslate = async (item: ClipboardItem, language: string) => {
+    try {
+      const translateFn = provider === 'ollama' ? translateContentOllama : translateContentNebius;
+      const updatedItem = await translateFn(item, language);
+      updateItem(updatedItem);
+      setSelectedItem(updatedItem);
+      toast.success('Content translated successfully');
+    } catch (error) {
+      console.error('Translate error:', error);
+      toast.error('Failed to translate content', {
+        description: error instanceof Error ? error.message : 'Unknown error occurred'
+      });
+    }
   };
 
   const filteredHistory = history.filter((item: ClipboardItem) =>
@@ -57,48 +137,6 @@ export function ClipboardManager() {
     }
   };
 
-  const handleFormat = async (item: ClipboardItem) => {
-    try {
-      const updatedItem = await formatCode(item);
-      updateItem(updatedItem);
-      setSelectedItem(updatedItem);
-      toast.success('Code formatted successfully');
-    } catch (error) {
-      console.error('Format error:', error);
-      toast.error('Failed to format code', {
-        description: error instanceof Error ? error.message : 'Unknown error occurred'
-      });
-    }
-  };
-
-  const handleSummarize = async (item: ClipboardItem) => {
-    try {
-      const updatedItem = await summarizeContent(item);
-      updateItem(updatedItem);
-      setSelectedItem(updatedItem);
-      toast.success('Content summarized successfully');
-    } catch (error) {
-      console.error('Summarize error:', error);
-      toast.error('Failed to summarize content', { 
-        description: error instanceof Error ? error.message : 'Unknown error occurred'
-      });
-    }
-  };
-
-  const handleTranslate = async (item: ClipboardItem, language: string) => {
-    try {
-      const updatedItem = await translateContent(item, language);
-      updateItem(updatedItem);
-      setSelectedItem(updatedItem);
-      toast.success('Content translated successfully');
-    } catch (error) {
-      console.error('Translate error:', error);
-      toast.error('Failed to translate content', {
-        description: error instanceof Error ? error.message : 'Unknown error occurred'
-      });
-    }
-  };
-
   return (
     <div className="flex flex-col h-full max-w-4xl mx-auto p-4 space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -107,9 +145,14 @@ export function ClipboardManager() {
           <ModelSelector
             selectedModel={selectedModel}
             onModelChange={handleModelChange}
-            availableModels={availableModels}
-            isLoadingModels={isLoadingModels}
-            onRefresh={fetchAvailableModels}
+            ollamaModels={ollamaModels}
+            nebiusModels={nebiusModels}
+            isLoadingModels={provider === 'ollama' ? isLoadingOllamaModels : isLoadingNebiusModels}
+            onRefresh={provider === 'ollama' ? fetchOllamaModels : fetchNebiusModels}
+            provider={provider}
+            onProviderChange={handleProviderChange}
+            apiKey={apiKey}
+            onApiKeyChange={handleApiKeyChange}
           />
           <Button
             onClick={isMonitoring ? stopMonitoring : startMonitoring}
