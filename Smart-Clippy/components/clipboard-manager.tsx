@@ -37,7 +37,6 @@ function ThemeToggle() {
 }
 
 export function ClipboardManager() {
-  const [theme, setTheme] = useLocalStorage<'light' | 'dark'>('theme', 'light');
   const [provider, setProvider] = useLocalStorage<'ollama' | 'nebius'>('selected-provider', 'ollama');
   const [selectedModel, setSelectedModel] = useLocalStorage('selected-model', 'qwen2.5');
   const [apiKey, setApiKey] = useLocalStorage('nebius-api-key', '');
@@ -166,10 +165,6 @@ export function ClipboardManager() {
       toast.error('Failed to copy to clipboard');
     }
   };
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-  }, [theme]);
 
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-100 via-slate-50 to-teal-100 dark:from-slate-900 dark:via-slate-800 dark:to-blue-900 text-slate-900 dark:text-slate-100 transition-colors duration-500">
